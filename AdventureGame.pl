@@ -24,6 +24,7 @@ state(outside,[],alive).
     
 % Describe the situation based on the state
 describe:-
+    !,
     current_state(State),  % Get the current state
     State = state(Location, Inventory, _),  % Extract components of the state
     nl,
@@ -37,14 +38,12 @@ list_items([Item | Rest]) :-
     write(Item), write(", "),
     list_items(Rest).
 
-move(_):-
- write("This move is forbidden."), nl.
+
 
 move(north) :-
-    current_state(State),  % Get the current state
-    State = state(Location, Inventory, _),  % Extract components of the state
- 
-    Location \== location(house), % player must be outside the house
+    current_state(State),
+    State = state(Location, Inventory, Alive),
+    write("current state: "), nl, write(Location), nl, write(Inventory), nl, write(Alive),nl,  % Get the current state
     retractall(current_state(_)),  % Remove all existing states
     NewState = state(house,_, alive), %state entering the house
     assertz(current_state(NewState)),    % Add new state
@@ -52,16 +51,22 @@ move(north) :-
     describe.  % Describe new state
 
 move(south) :-
+    
+    current_state(State),
+    State = state(Location, Inventory, Alive),
+    write("current state: "), nl, write(Location), nl, write(Inventory), nl, write(Alive),nl,  % Get the current state
+    Location \= house, %if player is in house it can only go north and exit the house
     retractall(current_state(_)),  % Remove all existing states
-    NewState = state(house,_, alive), %state entering the house
+    NewState = state(house,Inventory, Alive), %state entering the house
     assertz(current_state(NewState)),    % Add new state
     write("You have entered the house."), nl,
     describe.  % Describe new state
 
 move(west) :-
-    current_state(State),  % Get the current state
-    State = state(Location, Inventory, _),  % Extract components of the state
-    Location\=house, % player must be outside the house
+    current_state(State),
+    State = state(Location, Inventory, Alive),
+    write("current state: "), nl, write(Location), nl, write(Inventory), nl, write(Alive),nl,  % Get the current state
+    Location \= house, %if player is in house it can only go north and exit the house
     retractall(current_state(_)),  % Remove all existing states
     NewState = state(outside,_, alive), %state entering the house
     assertz(current_state(NewState)),    % Add new state
@@ -69,14 +74,18 @@ move(west) :-
     describe.  % Describe new state
 
 move(east) :-
-    current_state(State),  % Get the current state
-    State = state(Location, Inventory, _),  % Extract components of the state
-    Location\=house, % player must be outside the house
+    current_state(State),
+    State = state(Location, Inventory, Alive),
+    write("current state: "), nl, write(Location), nl, write(Inventory), nl, write(Alive),nl,  % Get the current state
+    Location \= house, %if player is in house it can only go north and exit the house
     retractall(current_state(_)),  % Remove all existing states
     NewState = state(outside,_, alive), %state entering the house
     assertz(current_state(NewState)),    % Add new state
     write("You have entered the house."), nl,
     describe.  % Describe new state
+
+move(_) :- write("This move is forbidden").
+    
 
 % Initialize the game
 start_game:-
