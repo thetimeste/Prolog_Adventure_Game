@@ -1,41 +1,123 @@
 % Dynamic variable to hold the current state
 :- dynamic current_state/1.
-
-current_state(state(outside,[],alive)).
-
-% Define the available items
-item(sword).
-item(shield).
-
-% Define the initial location of items
-item_location(sword, outside).
-item_location(shield, house).
+:- dynamic chest_state/1.
+:- dynamic monster_state/1.
 
 % Initial state
-state(outside,[],alive).
-    
+current_state(state(outside,[])).
+chest_state(closed).
+monster_state(alive).
+
 % Describes the player's situation
 describe:-
     current_state(State),  % Get the current state
-    State = state(Location, Inventory, _),  % Extract components of the state
+    State = state(Location, Inventory),  % Extract components of the state
     nl,
-    write("You are in: "), write(Location), nl,
+    write("Your current position: "), write(Location), nl,
     write("You have the following items: "), list_items(Inventory), nl.
 
 % Describes the environment around the player
-look(outside):- write("You can see a house to the south, a cave to the north, a precipice to the west, a river to the east"),nl.
+look(outside):- 
+    monster_state(MonsterState),
+    MonsterState==alive,
+    write("You can see a house to the south, a cave to the north, a precipice to the west, a river to the east"),nl.
+look(outside):- 
+    monster_state(MonsterState),
+    MonsterState==dead,
+    win,!.
+
+
 look(house):- write("You see a chest to the south and nothing else worth in the house"),nl.
-look(river):- write("You see a nice river with a shadow under the water, i wonder what it could be..."),nl.
+look(chest):- write("You see a giant chest, try to open it"),nl.
+look(river):- write("You see a nice river with a shadow under the water, try to pick that object up"),nl.
 look(precipice):- write("You see a warning sign that says 'DANGER AHEAD DO NO CROSS' "),nl.
-look(cave):- write("You are into the cave and you hear noises from north, it might be dangerous to proceed"),nl.
-look(cave2):- write("You are deep into the cave and hear loud scary noises from east, the monster must be hiding there"),nl.
-look(monster):- write("A giant monster with big teeth that eats you as soon as he sees you"),nl,die.
+look(cave):- 
+    monster_state(MonsterState),
+    MonsterState==alive,
+    write("You are entering a cave, it might be dangerous to go north"),nl.
+look(cave):- 
+    monster_state(MonsterState),
+    MonsterState==dead,
+    write("You are entering the cave that is safe, the cave goes deeper to the north, the exit is to the south"),nl.
+look(cave2):- 
+    monster_state(MonsterState),
+    MonsterState==alive,
+    write("You are deep into the cave and hear loud scary noises from east, the monster must be hiding there"),nl.
+look(cave2):- 
+    monster_state(MonsterState),
+    MonsterState==dead,
+    write("You are deep into the cave and it's silent, light comes from south, a terrible smell comes from east"),nl.
+
 look(hole):- write("You fall down the precipice and die..."),nl,die.
-% Define a predicate to list items the player has
+
+look(monster):-
+    monster_state(MonsterState),
+    MonsterState==alive,
+    current_state(State),
+    State = state(Location, Inventory),
+    is_item_in_list(shield,Inventory),
+    is_item_in_list(sword,Inventory),
+    monster_state(MonsterState),
+    MonsterState==alive,
+    write("You see a giant monster approaching"),nl,
+    write("the monster attacks you"),nl,
+    write("you parry the monster attack, the shield breaks"),nl,
+    write("you strike a powerful attack with your sword"),nl,
+    write("the monster loudly screams and falls on the ground"),nl,
+    write("the monster is dead"),nl,
+    retract(monster_state(MonsterState)),
+    MonsterNewState=dead,
+    assertz(monster_state(MonsterNewState)),
+    write("you can exit the cave..."),nl.
+
+
+look(monster):-
+    monster_state(MonsterState),
+    MonsterState==alive,
+    current_state(State),
+    State = state(Location, Inventory),
+    is_item_in_list(shield,Inventory),
+    write("You see a giant monster approaching"),nl,
+    write("the monster attacks you"),nl,
+    write("you parry the monster attack, the shield breaks"),nl,
+    write("you have no items to attack the monster that is preparing to attack again"),nl,
+    write("the monster attacks and you die."),nl,die.
+
+look(monster):-	
+    monster_state(MonsterState),
+    MonsterState==alive,
+    current_state(State),
+    State = state(Location, Inventory),
+    is_item_in_list(sword,Inventory),
+    write("You see a giant monster approaching"),nl,
+    write("you try to immediately attack with your sword, but the monster is faster"),nl,
+    write("you have no items to parry the monster's attack"),nl,
+    write("the monster attacks and you die."),nl,die.
+                                                                      
+look(monster):- 
+    monster_state(MonsterState),
+    MonsterState==alive,
+    write("You see a giant monster approaching"),nl,
+    write("you have no items to attack nor defend yourself"),nl,
+    write("the monster attacks and you die."),nl,die.
+    
+look(monster):-
+    monster_state(MonsterState),
+    MonsterState==dead,
+    write("You see a giant monster dead to the ground"),nl.
+
+
+%search for item in list
+is_item_in_list(Item, [Item | _]).
+
+is_item_in_list(Item, [_ | Rest]) :-
+    is_item_in_list(Item, Rest).
+
+% list items the player has
 list_items([]) :- 
-    write("none").
+    write(".").
 list_items([Item | Rest]) :-
-    write(Item), write(", "),
+    write(Item), write(" "),
     list_items(Rest).
 
 
@@ -55,6 +137,7 @@ path(cave,south,outside).
 path(cave,north,cave2).
 path(cave2,east,monster).
 path(cave2,south,cave).
+path(monster,west,cave2).
                            
 %paths from river
 path(river,west,outside).
@@ -63,45 +146,104 @@ path(river,west,outside).
 path(precipice,east,outside).
 path(precipice,west,hole).
 
-move(Direction) :-
+pickup:-
     current_state(State),
-    State = state(Location, Inventory, Alive),
-    path(Location, Direction, There),
-    NewState = state(There,_,_), %state entering the house
+    chest_state(ChestState),
+    State = state(Location, Inventory),
+    Location == chest,
+    ChestState == open,
+    append(Inventory, [shield], NewInventory),
+    NewState = state(Location,NewInventory), %state picking up shield
     retract(current_state(State)),
     assertz(current_state(NewState)),    % Add new state
-    describe,
+    write("Shield has been added to your inventory."),
+    describe.
+    
+pickup:-
+    current_state(State),
+    State = state(Location, Inventory),
+    Location == river,
+    append(Inventory, [sword], NewInventory),
+    NewState = state(Location,NewInventory), %state picking up shield
+    retract(current_state(State)),
+    assertz(current_state(NewState)),    % Add new state
+    write("Sword has been added to your inventory."),nl,
+    describe.
+
+pickup:-
+    chest_state(ChestState),
+    ChestState == closed,
+    write("The chest is closed, open it to pick up what's inside"),nl.
+    
+pickup:-
+    write("There is nothing to pick up here."),nl.
+
+open:-
+    chest_state(ChestState),
+    current_state(State),
+    State = state(Location, Inventory),
+    Location == chest,
+    ChestState == closed,
+    NewChestState = open,
+    retract(chest_state(ChestState)),
+    assertz(chest_state(NewChestState)),  
+    write("You open the chest, there is a golden shield inside."),nl.
+
+open:-
+    chest_state(ChestState),
+    current_state(State),
+    State = state(Location, Inventory),
+    Location == chest,
+    ChestState == open,
+    write("The chest is already open."),nl.
+
+open:- write("There is nothing to open here"),nl.
+
+n:- move(north).
+s:-move(south).
+e:-move(east).
+w:-move(west).
+
+move(Direction) :-
+    write("Moving "),write(Direction),write("..."),nl,
+    current_state(State),
+    State = state(Location, Inventory),
+    path(Location, Direction, There),
+    NewState = state(There,Inventory), %state entering the house
+    retract(current_state(State)),
+    assertz(current_state(NewState)),    % Add new state
+    location,
     look(There).  % Describe new state
 
 
-move(_) :- write("This move is forbidden"),nl.
+move(_) :- write("Can't go that way..."),nl.
+
+status:-	write(" --- status ---"),describe.
+location:-	current_state(State),
+    		State = state(Location, Inventory),
+    		write("You are in: "),write(Location),nl.
 
 % Handle game over
 die :-
-        !, finish.
-finish :-
-        nl,
-        write("Game Over"),
-        nl, !.
-    
+!, nl,
+write("Game Over").
+
+% Handle win
+win :-
+nl,
+write("CONGRATULATIONS YOU KILLED THE MONSTER AND WON THE GAME!!!"),
+nl,!.
 
 % Initialize the game
 start:-
-    write("Welcome to the Adventure Game!"), 
-    %InitialState = state(outside,[],alive),
-    %assertz(current_state(InitialState)),  % Store initial state
+    write("Welcome to the Adventure Game!"),nl, 
+    write("Your task is to kill the monster in the cave!"),nl,
+    write("Explore the environment to find useful items"),nl,
+    write("### COMMANDS ###"),nl,
+    write("n, s, e, w -> makes the player move north, south, east, west"),nl,
+    write("pickup -> pick up items nearby"),nl,
+    write("open -> open chests"),nl,
+    write("status -> description of your inventory and current location in the map"),nl,
+    write("### GAME STARTED ###"),nl,
     describe,
     look(outside).
-
-% Demo1 - player goes into the monster
-demo1:- 
-    start,
-    move(north),
-    move(north),
-    move(east).
-
-% Demo2 - player goes down the precipice
-demo2:-
-    start,
-    move(west),
-    move(west).
