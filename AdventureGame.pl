@@ -1,4 +1,4 @@
-% Dynamic variable to hold the current state
+% Dynamic predicates to hold the current state
 :- dynamic current_state/1.
 :- dynamic chest_state/1.
 :- dynamic monster_state/1.
@@ -17,39 +17,46 @@ describe:-
     write("You have the following items: "), list_items(Inventory), nl.
 
 % Describes the environment around the player
+% Outside and monster alive
 look(outside):- 
     monster_state(MonsterState),
     MonsterState==alive,
     write("You can see a house to the south, a cave to the north, a precipice to the west, a river to the east"),nl.
+% Outside and monster dead (win)
 look(outside):- 
     monster_state(MonsterState),
     MonsterState==dead,
     win,!.
 
-
 look(house):- write("You see a chest to the south and nothing else worth in the house"),nl.
 look(chest):- write("You see a giant chest, try to open it"),nl.
 look(river):- write("You see a nice river with a shadow under the water, try to pick that object up"),nl.
 look(precipice):- write("You see a warning sign that says 'DANGER AHEAD DO NO CROSS' "),nl.
+look(hole):- write("You fall down the precipice and die..."),nl,die. 
+
+% cave with monster alive
 look(cave):- 
     monster_state(MonsterState),
     MonsterState==alive,
     write("You are entering a cave, it might be dangerous to go north"),nl.
+% cave with monster dead
 look(cave):- 
     monster_state(MonsterState),
     MonsterState==dead,
     write("You are entering the cave that is safe, the cave goes deeper to the north, the exit is to the south"),nl.
+% cave2 with monster alive
 look(cave2):- 
     monster_state(MonsterState),
     MonsterState==alive,
     write("You are deep into the cave and hear loud scary noises from east, the monster must be hiding there"),nl.
+% cave2 with monster dead
 look(cave2):- 
     monster_state(MonsterState),
     MonsterState==dead,
-    write("You are deep into the cave and it's silent, light comes from south, a terrible smell comes from east"),nl.
+    write("You are deep into the cave and its silent, light comes from south, a terrible smell comes from east"),nl.
 
-look(hole):- write("You fall down the precipice and die..."),nl,die.
 
+% player ecounters monster with sword and shield
 look(monster):-
     monster_state(MonsterState),
     MonsterState==alive,
@@ -70,7 +77,7 @@ look(monster):-
     assertz(monster_state(MonsterNewState)),
     write("you can exit the cave..."),nl.
 
-
+% player ecounters monster with shield
 look(monster):-
     monster_state(MonsterState),
     MonsterState==alive,
@@ -83,6 +90,7 @@ look(monster):-
     write("you have no items to attack the monster that is preparing to attack again"),nl,
     write("the monster attacks and you die."),nl,die.
 
+% player ecounters monster with sword  
 look(monster):-	
     monster_state(MonsterState),
     MonsterState==alive,
@@ -91,16 +99,18 @@ look(monster):-
     is_item_in_list(sword,Inventory),
     write("You see a giant monster approaching"),nl,
     write("you try to immediately attack with your sword, but the monster is faster"),nl,
-    write("you have no items to parry the monster's attack"),nl,
+    write("you have no items to parry the monsters attack"),nl,
     write("the monster attacks and you die."),nl,die.
-                                                                      
+
+% player ecounters monster with no items                                                         
 look(monster):- 
     monster_state(MonsterState),
     MonsterState==alive,
     write("You see a giant monster approaching"),nl,
     write("you have no items to attack nor defend yourself"),nl,
     write("the monster attacks and you die."),nl,die.
-    
+
+% player ecounters dead monster  
 look(monster):-
     monster_state(MonsterState),
     MonsterState==dead,
@@ -146,6 +156,7 @@ path(river,west,outside).
 path(precipice,east,outside).
 path(precipice,west,hole).
 
+%pickup shield if chest is open
 pickup:-
     current_state(State),
     chest_state(ChestState),
@@ -158,7 +169,8 @@ pickup:-
     assertz(current_state(NewState)),    % Add new state
     write("Shield has been added to your inventory."),
     describe.
-    
+
+%pickup sword
 pickup:-
     current_state(State),
     State = state(Location, Inventory),
@@ -170,11 +182,12 @@ pickup:-
     write("Sword has been added to your inventory."),nl,
     describe.
 
+%prompt to open the chest
 pickup:-
     chest_state(ChestState),
     ChestState == closed,
-    write("The chest is closed, open it to pick up what's inside"),nl.
-    
+    write("The chest is closed, open it to pick up whats inside"),nl.
+   
 pickup:-
     write("There is nothing to pick up here."),nl.
 
@@ -216,7 +229,7 @@ move(Direction) :-
     look(There).  % Describe new state
 
 
-move(_) :- write("Can't go that way..."),nl.
+move(_) :- write("Cant go that way..."),nl.
 
 status:-	write(" --- status ---"),describe.
 location:-	current_state(State),
@@ -225,14 +238,15 @@ location:-	current_state(State),
 
 % Handle game over
 die :-
-!, nl,
-write("Game Over").
+nl,
+write("Game Over"),
+halt.
 
 % Handle win
 win :-
 nl,
 write("CONGRATULATIONS YOU KILLED THE MONSTER AND WON THE GAME!!!"),
-nl,!.
+halt.
 
 % Initialize the game
 start:-
